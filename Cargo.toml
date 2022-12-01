@@ -1,0 +1,14 @@
+[package]
+name = "bstrx"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "bstrx"
+path = "src/lib.rs"
+
+[dependencies]
+base64 = "0.13"
+bytes = "1"
+bytestring = "1"
+libc = "0.2"
