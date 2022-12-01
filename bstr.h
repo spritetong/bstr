@@ -258,6 +258,10 @@ public:
                ::memcmp(m_inner.ptr, other.ptr, m_inner.len) == 0;
     }
 
+    Bytes slice(size_t start, size_t stop) const {
+        return Bytes(::bytes_slice(&m_inner, start, stop), 0);
+    }
+
 public:
     static Bytes base64_decode(const ByteString &str);
     ByteString base64_encode();
