@@ -1,10 +1,10 @@
 [package]
-name = "bstrx"
+name = "bstr"
 version = "0.1.0"
 edition = "2021"
 
 [lib]
-name = "bstrx"
+name = "bstr"
 path = "src/lib.rs"
 
 [dependencies]
