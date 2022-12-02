@@ -6,6 +6,7 @@ edition = "2021"
 [lib]
 name = "bstr"
 path = "src/lib.rs"
+crate-type = ["lib", "cdylib"]
 
 [dependencies]
 base64 = "0.13"

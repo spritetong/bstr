@@ -81,10 +81,8 @@ extern void bytes_swap(bytes_t *a, bytes_t *b);
 
 /// @brief Decode from a BAS64 string.
 /// @param [in] str The BASE64 string.
-/// @param [in] len if len != NPOS, it's length of the string; otherwise,
-/// the string must be nul-terminated.
 /// @return The new array which must be released by \ref bytes_release().
-extern bytes_t bytes_base64_decode(const char *str, size_t len);
+extern bytes_t bytes_base64_decode(const bstr_t *str);
 
 /// @brief Encode into a BAS64 string.
 /// @param [in] bytes The BASE64 encoded string.
@@ -202,6 +200,11 @@ public:
         return Bytes(::bytes_from_static(static_data, len), 0);
     }
 
+    /// @brief Move a bytes_t into a byte array without cloning.
+    static Bytes from_bytes(bytes_t moved) {
+        return Bytes(moved, 0);
+    }
+
     Bytes(const ByteString &str);
 
     Bytes(const bstr_t &str) : m_inner(::bytes_from_bstr(&str)) {}
@@ -267,8 +270,8 @@ public:
     ByteString base64_encode();
 
 private:
-    /// @brief Assign a byte array without clone.
-    Bytes(const bytes_t &bytes, int _dummy) : m_inner(bytes) {}
+    /// @brief Move a bytes_t into a byte array without cloning.
+    Bytes(const bytes_t moved, int _dummy) : m_inner(moved) {}
 
 private:
     bytes_t m_inner;
@@ -284,6 +287,11 @@ public:
     /// @return ByteString
     static ByteString from_static(const char *static_str, size_t len = NPOS) {
         return ByteString(::bstr_from_static(static_str, len), 0);
+    }
+
+    /// @brief Move a bstr_t into a new string without cloning.
+    static ByteString from_bstr(bstr_t moved) {
+        return ByteString(moved, 0);
     }
 
     ByteString(const Bytes &bytes) : m_inner(::bstr_from_bytes(bytes)) {}
@@ -399,8 +407,8 @@ public:
     }
 
 private:
-    /// @brief Assign a string without clone.
-    ByteString(const bstr_t &str, int _dummy) : m_inner(str) {}
+    /// @brief Move a bstr_t into a new string without cloning.
+    ByteString(bstr_t moved, int _dummy) : m_inner(moved) {}
 
     friend class Bytes;
 
@@ -411,7 +419,7 @@ private:
 inline Bytes::Bytes(const ByteString &str) : m_inner(::bytes_from_bstr(str)) {}
 
 inline Bytes Bytes::base64_decode(const ByteString &str) {
-    return Bytes(::bytes_base64_decode(str.ptr(), str.size()), 0);
+    return Bytes(::bytes_base64_decode(str), 0);
 }
 
 inline ByteString Bytes::base64_encode() {

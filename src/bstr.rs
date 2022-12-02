@@ -96,18 +96,11 @@ pub unsafe extern "C" fn bytes_swap(a: *mut bytes_t, b: *mut bytes_t) {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn bytes_base64_decode(str: *const c_char, len: usize) -> bytes_t {
+pub unsafe extern "C" fn bytes_base64_decode(str: *const bstr_t) -> bytes_t {
     if str.is_null() {
         Bytes::new()
     } else {
-        let len = if len == usize::MAX {
-            libc::strlen(str)
-        } else {
-            len
-        };
-        base64::decode(slice::from_raw_parts(str as *const u8, len as _))
-            .unwrap_or_default()
-            .into()
+        base64::decode(&*str).unwrap_or_default().into()
     }
 }
 

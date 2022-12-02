@@ -80,18 +80,7 @@ class Bytes(Structure):
 
     @staticmethod
     def base64_decode(s: Union['Bstr', 'Bytes', c_char_p, bytes, c_wchar_p, str]) -> 'Bytes':
-        decode = api.bytes_base64_decode
-        if isinstance(s, (Bstr, Bytes)):
-            return decode(pointer(c_char.from_address(s.ptr)), s.size)
-        elif isinstance(s, c_char_p):
-            return decode(s, len(s.value))
-        elif isinstance(s, bytes):
-            return decode(s, len(s))
-        elif isinstance(s, (c_wchar_p, str)):
-            s = Bstr(s)
-            return decode(pointer(c_char.from_address(s.ptr)), s.size)
-        else:
-            raise TypeError('Invalid type: {}'.format(type(s)))
+        return api.bytes_base64_decode(pointer(Bstr(s)))
 
 
 class Bstr(Structure):
@@ -211,7 +200,7 @@ class BstrApi:
         self.bytes_swap = prototype(
             ('bytes_swap', dll))
 
-        prototype = CFUNCTYPE(Bytes, POINTER(c_char), c_size_t)
+        prototype = CFUNCTYPE(Bytes, POINTER(Bstr))
         self.bytes_base64_decode = prototype(
             ('bytes_base64_decode', dll))
 
@@ -317,7 +306,10 @@ class BstrApi:
                         if os.path.isdir(dir):
                             yield dir
                     break
-                path = os.path.dirname(path)
+                parent = os.path.dirname(path)
+                if path == parent:
+                    break
+                path = parent
 
         for dir in search_path():
             try:
@@ -344,9 +336,9 @@ def bstr_api() -> BstrApi:
 if __name__ == '__main__':
     import copy
 
-    bstr_api().load_library('drsdk.dll')
+    bstr_api().load_library('bstr.dll')
 
-    for _ in range(100):
+    for _ in range(100000000):
         print(api.bstr_new())
         print(Bstr('134365'))
         print(Bstr('1343651'))
