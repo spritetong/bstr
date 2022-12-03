@@ -338,7 +338,7 @@ if __name__ == '__main__':
 
     bstr_api().load_library('bstr.dll')
 
-    for _ in range(100000000):
+    for _ in range(1):
         print(api.bstr_new())
         print(Bstr('134365'))
         print(Bstr('1343651'))

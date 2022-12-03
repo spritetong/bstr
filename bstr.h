@@ -56,8 +56,8 @@ extern bytes_t bytes_from_bstr(const bstr_t *s);
 /// @return The new array which must be released by \ref bytes_release().
 extern bytes_t bytes_copy_from_slice(const void *data, size_t len);
 
-/// @brief Get a slice [start, stop) from a byte array. [0, bytes->len) represents the
-/// whole array.
+/// @brief Get a slice [start, stop) from a byte array. [0, bytes->len)
+/// represents the whole array.
 /// @param [in] bytes The byte array.
 /// @param [in] start The start position (>= 0).
 /// @param [in] stop The stop position (< bytes->len). NPOS indicates the end of
@@ -189,7 +189,7 @@ struct ByteString;
 
 struct Bytes {
 public:
-    Bytes() : m_inner(::bytes_new()) {}
+    Bytes() { ::bytes_init(&m_inner); }
     ~Bytes() { ::bytes_release(&m_inner); }
 
     /// @brief Construct from a static bytes slice.
@@ -201,8 +201,10 @@ public:
     }
 
     /// @brief Move a bytes_t into a byte array without cloning.
-    static Bytes from_bytes(bytes_t moved) {
-        return Bytes(moved, 0);
+    static Bytes from_bytes(bytes_t &moved) {
+        bytes_t a = moved;
+        ::bytes_init(&moved);
+        return Bytes(a, 0);
     }
 
     Bytes(const ByteString &str);
@@ -226,8 +228,8 @@ public:
 
     // C++ 11
 #if __cplusplus >= 201103L
-    Bytes(Bytes &&other) : m_inner(::bytes_new()) {
-        ::bytes_swap(&m_inner, &other.m_inner);
+    Bytes(Bytes &&other) : m_inner(other.m_inner) {
+        ::bytes_init(&other.m_inner);
     }
 
     Bytes &operator=(Bytes &&other) {
@@ -271,7 +273,7 @@ public:
 
 private:
     /// @brief Move a bytes_t into a byte array without cloning.
-    Bytes(const bytes_t moved, int _dummy) : m_inner(moved) {}
+    Bytes(bytes_t &moved, int _dummy) : m_inner(moved) {}
 
 private:
     bytes_t m_inner;
@@ -279,7 +281,7 @@ private:
 
 struct ByteString {
 public:
-    ByteString() : m_inner(::bstr_new()) {}
+    ByteString() { ::bstr_init(&m_inner); }
     ~ByteString() { ::bstr_release(&m_inner); }
 
     /// @brief Construct from a static string.
@@ -290,8 +292,10 @@ public:
     }
 
     /// @brief Move a bstr_t into a new string without cloning.
-    static ByteString from_bstr(bstr_t moved) {
-        return ByteString(moved, 0);
+    static ByteString from_bstr(bstr_t &moved) {
+        bstr_t a = moved;
+        ::bstr_init(&moved);
+        return ByteString(a, 0);
     }
 
     ByteString(const Bytes &bytes) : m_inner(::bstr_from_bytes(bytes)) {}
@@ -339,8 +343,8 @@ public:
 
     // C++ 11
 #if __cplusplus >= 201103L
-    ByteString(ByteString &&other) : m_inner(::bstr_new()) {
-        ::bstr_swap(&m_inner, &other.m_inner);
+    ByteString(ByteString &&other) : m_inner(other.m_inner) {
+        ::bstr_init(&other.m_inner);
     }
 
     ByteString &operator=(ByteString &&other) {
@@ -408,7 +412,7 @@ public:
 
 private:
     /// @brief Move a bstr_t into a new string without cloning.
-    ByteString(bstr_t moved, int _dummy) : m_inner(moved) {}
+    ByteString(bstr_t &moved, int _dummy) : m_inner(moved) {}
 
     friend class Bytes;
 
