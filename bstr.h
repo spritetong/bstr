@@ -202,9 +202,9 @@ public:
 
     /// @brief Move a bytes_t into a byte array without cloning.
     static Bytes from_bytes(bytes_t &moved) {
-        bytes_t a = moved;
+        Bytes x = Bytes(moved, 0);
         ::bytes_init(&moved);
-        return Bytes(a, 0);
+        return x;
     }
 
     Bytes(const ByteString &str);
@@ -225,21 +225,6 @@ public:
         }
         return *this;
     }
-
-    // C++ 11
-#if __cplusplus >= 201103L
-    Bytes(Bytes &&other) : m_inner(other.m_inner) {
-        ::bytes_init(&other.m_inner);
-    }
-
-    Bytes &operator=(Bytes &&other) {
-        if (this != &other) {
-            ::bytes_release(&m_inner);
-            ::bytes_swap(&m_inner, &other.m_inner);
-        }
-        return *this;
-    }
-#endif
 
     operator const bytes_t *() const { return &m_inner; }
     operator bytes_t *() { return &m_inner; }
@@ -267,13 +252,31 @@ public:
         return Bytes(::bytes_slice(&m_inner, start, stop), 0);
     }
 
+#if __cplusplus >= 201103L  // C++ 11
+    static Bytes from_bytes(bytes_t &&moved) {
+        return Bytes(moved, 0);
+    }
+
+    Bytes(Bytes &&other) : m_inner(other.m_inner) {
+        ::bytes_init(&other.m_inner);
+    }
+
+    Bytes &operator=(Bytes &&other) {
+        if (this != &other) {
+            m_inner = other.m_inner;
+            ::bytes_init(&other.m_inner);
+        }
+        return *this;
+    }
+#endif
+
 public:
     static Bytes base64_decode(const ByteString &str);
     ByteString base64_encode();
 
 private:
     /// @brief Move a bytes_t into a byte array without cloning.
-    Bytes(bytes_t &moved, int _dummy) : m_inner(moved) {}
+    Bytes(const bytes_t &moved, int _dummy) : m_inner(moved) {}
 
 private:
     bytes_t m_inner;
@@ -293,9 +296,9 @@ public:
 
     /// @brief Move a bstr_t into a new string without cloning.
     static ByteString from_bstr(bstr_t &moved) {
-        bstr_t a = moved;
+        ByteString x = ByteString(moved, 0);
         ::bstr_init(&moved);
-        return ByteString(a, 0);
+        return x;
     }
 
     ByteString(const Bytes &bytes) : m_inner(::bstr_from_bytes(bytes)) {}
@@ -340,21 +343,6 @@ public:
         }
         return *this;
     }
-
-    // C++ 11
-#if __cplusplus >= 201103L
-    ByteString(ByteString &&other) : m_inner(other.m_inner) {
-        ::bstr_init(&other.m_inner);
-    }
-
-    ByteString &operator=(ByteString &&other) {
-        if (this != &other) {
-            ::bstr_release(&m_inner);
-            ::bstr_swap(&m_inner, &other.m_inner);
-        }
-        return *this;
-    }
-#endif
 
     operator const bstr_t *() const { return &m_inner; }
     operator bstr_t *() { return &m_inner; }
@@ -410,9 +398,27 @@ public:
                other[m_inner.len] == '\0';
     }
 
+#if __cplusplus >= 201103L  // C++ 11
+    static ByteString from_bstr(bstr_t &&moved) {
+        return ByteString(moved, 0);
+    }
+
+    ByteString(ByteString &&other) : m_inner(other.m_inner) {
+        ::bstr_init(&other.m_inner);
+    }
+
+    ByteString &operator=(ByteString &&other) {
+        if (this != &other) {
+            m_inner = other.m_inner;
+            ::bstr_init(&other.m_inner);
+        }
+        return *this;
+    }
+#endif
+
 private:
     /// @brief Move a bstr_t into a new string without cloning.
-    ByteString(bstr_t &moved, int _dummy) : m_inner(moved) {}
+    ByteString(const bstr_t &moved, int _dummy) : m_inner(moved) {}
 
     friend class Bytes;
 
