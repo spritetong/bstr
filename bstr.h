@@ -178,6 +178,14 @@ extern uint32_t *bstr_dup_utf32(const bstr_t *s);
 /// @param [in] ptr
 extern void bstr_mem_free(void *ptr);
 
+#if WCHAR_MAX == 0xffff
+#define bstr_from_wchar(str, len) bstr_from_utf16((const uint16_t *)(str), len)
+#define bstr_dup_wchar(s) ((wchar_t *)bstr_dup_utf16(s))
+#else
+#define bstr_from_wchar(str, len) bstr_from_utf32((const uint32_t *)(str), len)
+#define bstr_dup_wchar(s) ((wchar_t *)bstr_dup_utf32(s))
+#endif
+
 #ifdef __cplusplus
 }
 
@@ -195,9 +203,77 @@ extern void bstr_mem_free(void *ptr);
 #endif
 // clang-format on
 
-struct ByteString;
+class ByteString;
 
-struct Bytes {
+class CStr {
+public:
+    CStr(const char *s, size_t len = NPOS) : m_str(_allocate(s, len)) {}
+
+    ~CStr() { _deallocate(); }
+
+    CStr(const CStr &other) : m_str(_allocate(other.m_str, NPOS)) {}
+
+    CStr &operator=(const CStr &other) {
+        if (this != &other) {
+            _deallocate();
+            m_str = _allocate(other.m_str);
+        }
+        return *this;
+    }
+
+    operator const char *() const { return m_str; }
+
+    const char *c_str() const { return m_str; }
+
+    size_t size() const { return ::strlen(m_str); }
+
+#if __cplusplus >= 201103L  // C++ 11
+    CStr(CStr &&other) : m_str(other.m_str) { other.m_str = EMPTY_STR(); }
+
+    CStr &operator=(CStr &&other) {
+        if (this != &other) {
+            const char *tmp = m_str;
+            m_str = other.m_str;
+            other.m_str = tmp;
+        }
+        return *this;
+    }
+#endif
+
+private:
+    static const char *EMPTY_STR() {
+        static const char ES[] = "";
+        return ES;
+    }
+
+    static const char *_allocate(const char *s, size_t len = NPOS) {
+        if (s) {
+            if (len == NPOS) {
+                len = ::strlen(s);
+            }
+            if (len > 0) {
+                char *p = new char[len + 1];
+                if (p) {
+                    ::memcpy(p, s, len);
+                    p[len] = '\0';
+                    return p;
+                }
+            }
+        }
+        return EMPTY_STR();
+    }
+
+    void _deallocate() {
+        if (m_str != EMPTY_STR()) {
+            delete[] (char *)m_str;
+            m_str = NULL;
+        }
+    }
+
+    const char *m_str;
+};
+
+class Bytes {
 public:
     Bytes() { ::bytes_init(&m_inner); }
     ~Bytes() { ::bytes_release(&m_inner); }
@@ -274,8 +350,7 @@ public:
 
     Bytes &operator=(Bytes &&other) {
         if (this != &other) {
-            m_inner = other.m_inner;
-            ::bytes_init(&other.m_inner);
+            ::bytes_swap(&m_inner, &other.m_inner);
         }
         return *this;
     }
@@ -293,7 +368,7 @@ private:
     bytes_t m_inner;
 };
 
-struct ByteString {
+class ByteString {
 public:
     ByteString() { ::bstr_init(&m_inner); }
     ~ByteString() { ::bstr_release(&m_inner); }
@@ -326,21 +401,7 @@ public:
         : m_inner(::bstr_from_utf32(utf32, len)) {}
 
     ByteString(const wchar_t *wstr, size_t len = NPOS)
-        : m_inner(
-#if WCHAR_MAX == 0xffff
-              ::bstr_from_utf16((const uint16_t *)wstr, len)
-#else
-              ::bstr_from_utf32((const uint32_t *)wstr, len)
-#endif
-          ) {
-    }
-
-#if (_BSTR_HAS_STD)
-    ByteString(const std::string &str) : ByteString(str.c_str(), str.size()) {}
-
-    ByteString(const std::wstring &wstr)
-        : ByteString(wstr.c_str(), wstr.size()) {}
-#endif
+        : m_inner(::bstr_from_wchar(wstr, len)) {}
 
     ByteString(const bstr_t &str) : m_inner(::bstr_clone(&str)) {}
 
@@ -368,31 +429,9 @@ public:
     /// @brief Get the length of the string
     size_t size() const { return m_inner.len; }
 
-#if (_BSTR_HAS_STD)
-    /// @brief Convert to a std::string.
-    operator std::string() const {
-        return std::string(m_inner.ptr, m_inner.len);
-    }
+    operator CStr() const { return CStr(m_inner.ptr, m_inner.len); }
 
-    /// @brief Convert to a std::wstring.
-    operator std::wstring() const {
-        wchar_t *p =
-#if WCHAR_MAX == 0xffff
-            (wchar_t *)::bstr_dup_utf16(*this);
-#else
-            (wchar_t *)::bstr_dup_utf32(*this);
-#endif
-        std::wstring s = std::wstring(p);
-        ::bstr_mem_free(p);
-        return s;
-    }
-
-    /// @brief Convert to a std::string.
-    std::string as_string() const { return *this; }
-
-    /// @brief Convert to a std::wstring.
-    std::wstring as_wstring() const { return *this; }
-#endif
+    CStr as_cstr() const { return CStr(m_inner.ptr, m_inner.len); }
 
     bool operator==(const ByteString &other) const {
         return m_inner.len == other.m_inner.len &&
@@ -418,11 +457,37 @@ public:
 
     ByteString &operator=(ByteString &&other) {
         if (this != &other) {
-            m_inner = other.m_inner;
-            ::bstr_init(&other.m_inner);
+            ::bstr_swap(&m_inner, &other.m_inner);
         }
         return *this;
     }
+#endif
+
+#if (_BSTR_HAS_STD)
+    ByteString(const std::string &str)
+        : m_inner(::bstr_from_utf8(str.c_str(), str.size())) {}
+
+    ByteString(const std::wstring &wstr)
+        : m_inner(::bstr_from_wchar(wstr.c_str(), wstr.size())) {}
+
+    /// @brief Convert to a std::string.
+    operator std::string() const {
+        return std::string(m_inner.ptr, m_inner.len);
+    }
+
+    /// @brief Convert to a std::wstring.
+    operator std::wstring() const {
+        wchar_t *p = bstr_dup_wchar(*this);
+        std::wstring s = std::wstring(p);
+        ::bstr_mem_free(p);
+        return s;
+    }
+
+    /// @brief Convert to a std::string.
+    std::string as_string() const { return *this; }
+
+    /// @brief Convert to a std::wstring.
+    std::wstring as_wstring() const { return *this; }
 #endif
 
 private:
