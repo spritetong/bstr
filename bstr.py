@@ -16,9 +16,13 @@ class Bytes(Structure):
                 ('reserved1', c_void_p),
                 ('reserved2', c_void_p), ]
 
-    def __init__(self, s: Optional[Union['Bytes', 'Bstr', c_char_p, bytes]] = None):
+    def __init__(self, s: Optional[Union[int, 'Bytes', 'Bstr', c_char_p, bytes]] = None):
         api.bytes_init(pointer(self))
-        if isinstance(s, Bytes):
+        if isinstance(s, int):
+            if s < 0 or s >= 0xFFFFFFFF:
+                raise ArgumentError('Invalid array length: {}'.format(s))
+            api.bytes_swap(pointer(self), pointer(api.bytes_alloc(s)))
+        elif isinstance(s, Bytes):
             api.bytes_swap(pointer(self), pointer(api.bytes_clone(pointer(s))))
         elif isinstance(s, POINTER(Bytes)):
             api.bytes_swap(pointer(self), pointer(api.bytes_clone(s)))
@@ -171,6 +175,12 @@ class BstrApi:
 
         prototype = CFUNCTYPE(Bytes)
         self.bytes_new = prototype(('bytes_new', dll))
+
+        prototype = CFUNCTYPE(Bytes, c_size_t)
+        self.bytes_alloc = prototype(('bytes_alloc', dll))
+
+        prototype = CFUNCTYPE(Bytes, c_size_t)
+        self.bytes_zalloc = prototype(('bytes_zalloc', dll))
 
         prototype = CFUNCTYPE(Bytes, c_void_p, c_size_t)
         self.bytes_from_static = prototype(
@@ -347,6 +357,7 @@ if __name__ == '__main__':
         print(api.bstr_clone(pointer(Bstr('1343651'))))
 
         print(api.bytes_new())
+        assert len(Bytes(100)) == 100
         print(Bytes(b'134365'))
         print(Bytes(b'1343651'))
         print(Bytes(c_char_p(b'134365')))

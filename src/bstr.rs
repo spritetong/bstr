@@ -33,6 +33,19 @@ pub extern "C" fn bytes_new() -> bytes_t {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn bytes_alloc(len: usize) -> bytes_t {
+    let mut s = Vec::<u8>::with_capacity(len);
+    #[allow(clippy::uninit_vec)]
+    s.set_len(len);
+    s.into()
+}
+
+#[no_mangle]
+pub extern "C" fn bytes_zalloc(len: usize) -> bytes_t {
+    vec![0u8; len].into()
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn bytes_from_static(static_data: *const c_void, len: usize) -> bytes_t {
     if static_data.is_null() {
         Bytes::new()

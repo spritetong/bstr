@@ -39,6 +39,16 @@ extern void bytes_init(bytes_t *buf);
 /// @return The new array which must be released by \ref bytes_release().
 extern bytes_t bytes_new(void);
 
+/// @brief Allocate an uninitialized byte array with the length.
+/// @param [in] len Number of bytes of the array.
+/// @return The new array which must be released by \ref bytes_release().
+extern bytes_t bytes_alloc(size_t len);
+
+/// @brief Allocate a zero-initialized byte array with the length.
+/// @param [in] len Number of bytes of the array.
+/// @return The new array which must be released by \ref bytes_release().
+extern bytes_t bytes_zalloc(size_t len);
+
 /// @brief Create by a static byte array.
 /// @param [in] static_data Pointer to the static byte array.
 /// @param [in] len Number of bytes of the array.
@@ -207,6 +217,9 @@ public:
         return x;
     }
 
+    /// @brief Allocate an uninitialed byte array with the length.
+    Bytes(size_t len) : m_inner(::bytes_alloc(len)) {}
+
     Bytes(const ByteString &str);
 
     Bytes(const bstr_t &str) : m_inner(::bytes_from_bstr(&str)) {}
@@ -253,9 +266,7 @@ public:
     }
 
 #if __cplusplus >= 201103L  // C++ 11
-    static Bytes from_bytes(bytes_t &&moved) {
-        return Bytes(moved, 0);
-    }
+    static Bytes from_bytes(bytes_t &&moved) { return Bytes(moved, 0); }
 
     Bytes(Bytes &&other) : m_inner(other.m_inner) {
         ::bytes_init(&other.m_inner);
@@ -399,9 +410,7 @@ public:
     }
 
 #if __cplusplus >= 201103L  // C++ 11
-    static ByteString from_bstr(bstr_t &&moved) {
-        return ByteString(moved, 0);
-    }
+    static ByteString from_bstr(bstr_t &&moved) { return ByteString(moved, 0); }
 
     ByteString(ByteString &&other) : m_inner(other.m_inner) {
         ::bstr_init(&other.m_inner);
