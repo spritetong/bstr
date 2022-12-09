@@ -207,6 +207,8 @@ class ByteString;
 
 class CStr {
 public:
+    CStr() : m_str(EMPTY_STR()) {}
+
     CStr(const char *s, size_t len = NPOS) : m_str(_allocate(s, len)) {}
 
     ~CStr() { _deallocate(); }
@@ -390,6 +392,9 @@ public:
     ByteString(const Bytes &bytes) : m_inner(::bstr_from_bytes(bytes)) {}
 
     ByteString(const bytes_t &bytes) : m_inner(::bstr_from_bytes(&bytes)) {}
+
+    ByteString(const CStr &utf8)
+        : m_inner(::bstr_from_utf8(utf8, utf8.size())) {}
 
     ByteString(const char *utf8, size_t len = NPOS)
         : m_inner(::bstr_from_utf8(utf8, len)) {}
