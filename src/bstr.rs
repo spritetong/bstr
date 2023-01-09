@@ -3,7 +3,7 @@
 #![allow(improper_ctypes_definitions)]
 #![allow(clippy::missing_safety_doc)]
 
-use ::base64;
+use ::base64::{Engine as _, engine::general_purpose::STANDARD as base64_standard};
 use ::bytes::Bytes;
 use ::bytestring::ByteString;
 use ::libc;
@@ -113,7 +113,7 @@ pub unsafe extern "C" fn bytes_base64_decode(str: *const bstr_t) -> bytes_t {
     if str.is_null() {
         Bytes::new()
     } else {
-        base64::decode(&*str).unwrap_or_default().into()
+        base64_standard.decode(&*str).unwrap_or_default().into()
     }
 }
 
@@ -122,7 +122,7 @@ pub unsafe extern "C" fn bytes_base64_encode(bytes: *const bytes_t) -> bstr_t {
     if bytes.is_null() {
         ByteString::new()
     } else {
-        base64::encode(&*bytes).into()
+        base64_standard.encode(&*bytes).into()
     }
 }
 
