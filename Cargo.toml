@@ -9,7 +9,7 @@ path = "src/lib.rs"
 crate-type = ["lib", "cdylib"]
 
 [dependencies]
-base64 = "0.20"
+base64 = "0.21"
 bytes = "1"
 bytestring = "1"
 libc = "0.2"
