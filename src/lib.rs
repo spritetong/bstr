@@ -1,3 +1,3 @@
 mod bstr;
 
-pub use bstr::*;
+pub use crate::bstr::*;
