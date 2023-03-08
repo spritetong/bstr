@@ -244,8 +244,8 @@ public:
 
 private:
     static const char *EMPTY_STR() {
-        static const char ES[] = "";
-        return ES;
+        static const char ES[] = {0, 0};
+        return (const char *)((uintptr_t)ES | 1);
     }
 
     static const char *_allocate(const char *s, size_t len = NPOS) {
@@ -266,9 +266,9 @@ private:
     }
 
     void _deallocate() {
-        if (m_str != EMPTY_STR()) {
+        if (!((uintptr_t)m_str & 1)) {
             delete[] (char *)m_str;
-            m_str = NULL;
+            m_str = EMPTY_STR();
         }
     }
 
