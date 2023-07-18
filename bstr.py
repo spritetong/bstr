@@ -11,10 +11,10 @@ __all__ = ('Bytes', 'Bstr', 'bstr_api')
 
 
 class Bytes(Structure):
-    _fields_ = [('ptr', c_void_p),
-                ('size', c_size_t),
-                ('reserved1', c_void_p),
-                ('reserved2', c_void_p), ]
+    _fields_ = [('reserved1', c_void_p),
+                ('reserved2', c_void_p),
+                ('reserved3', c_void_p),
+                ('reserved4', c_void_p), ]
 
     def __init__(self, s: Optional[Union[int, 'Bytes', 'Bstr', c_char_p, bytes]] = None):
         api.bytes_init(pointer(self))
@@ -46,21 +46,21 @@ class Bytes(Structure):
         api.bytes_release(pointer(self))
 
     def __len__(self):
-        return self.size
+        return api.bytes_size(pointer(self))
 
     def __getitem__(self, key):
         if isinstance(key, slice):
             # Get the start, stop and step from the slice.
             if key.step == 1:
-                (start, stop, _) = key.indices(self.size)
+                (start, stop, _) = key.indices(len(self))
                 return api.bytes_slice(pointer(self), start, stop)
-            return Bytes(string_at(self.ptr, self.size).__getitem__(key))
+            return Bytes(string_at(self.ptr(), len(self)).__getitem__(key))
         elif isinstance(key, int):
             if key < 0:  # Handle negative indices
-                key += self.size
-            if key < 0 or key >= self.size:
+                key += len(self)
+            if key < 0 or key >= len(self):
                 raise IndexError("The index ({}) is out of range.".format(key))
-            return c_uint8.from_address(self.ptr + key).value
+            return c_uint8.from_address(self.ptr() + key).value
         else:
             raise IndexError("Invalid argument type.")
 
@@ -73,11 +73,14 @@ class Bytes(Structure):
     def __str__(self) -> str:
         return str(self.bytes())
 
+    def ptr(self) -> c_void_p:
+        return api.bytes_ptr(pointer(self))
+
     def copy(self) -> 'Bytes':
         return api.bytes_clone(pointer(self))
 
     def bytes(self) -> bytes:
-        return string_at(self.ptr, self.size)
+        return string_at(self.ptr(), len(self))
 
     def base64_encode(self) -> 'Bstr':
         return api.bytes_base64_encode(pointer(self))
@@ -127,7 +130,7 @@ class Bstr(Structure):
         api.bstr_release(pointer(self))
 
     def __len__(self):
-        return self.size
+        return api.bstr_size(pointer(self))
 
     def __copy__(self) -> 'Bstr':
         return api.bstr_clone(pointer(self))
@@ -138,14 +141,17 @@ class Bstr(Structure):
     def __str__(self) -> str:
         return self.str()
 
+    def ptr(self) -> c_void_p:
+        return api.bstr_ptr(pointer(self))
+
     def copy(self) -> 'Bstr':
         return api.bstr_clone(pointer(self))
 
     def bytes(self) -> bytes:
-        return string_at(self.ptr, self.size)
+        return string_at(self.ptr(), len(self))
 
     def str(self) -> str:
-        return string_at(self.ptr, self.size).decode('utf-8')
+        return string_at(self.ptr(), len(self)).decode('utf-8')
 
 
 class BstrApi:
@@ -172,6 +178,12 @@ class BstrApi:
 
         prototype = CFUNCTYPE(None, POINTER(Bytes))
         self.bytes_init = prototype(('bytes_init', dll))
+
+        prototype = CFUNCTYPE(c_void_p, POINTER(Bytes))
+        self.bytes_ptr = prototype(('bytes_ptr', dll))
+
+        prototype = CFUNCTYPE(c_size_t, POINTER(Bytes))
+        self.bytes_size = prototype(('bytes_size', dll))
 
         prototype = CFUNCTYPE(Bytes)
         self.bytes_new = prototype(('bytes_new', dll))
@@ -222,6 +234,12 @@ class BstrApi:
 
         prototype = CFUNCTYPE(None, POINTER(Bstr))
         self.bstr_init = prototype(('bstr_init', dll))
+
+        prototype = CFUNCTYPE(c_void_p, POINTER(Bstr))
+        self.bstr_ptr = prototype(('bstr_ptr', dll))
+
+        prototype = CFUNCTYPE(c_size_t, POINTER(Bstr))
+        self.bstr_size = prototype(('bstr_size', dll))
 
         prototype = CFUNCTYPE(Bstr)
         self.bstr_new = prototype(('bstr_new', dll))

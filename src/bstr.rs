@@ -3,7 +3,7 @@
 #![allow(improper_ctypes_definitions)]
 #![allow(clippy::missing_safety_doc)]
 
-use ::base64::{Engine as _, engine::general_purpose::STANDARD as base64_standard};
+use ::base64::{engine::general_purpose::STANDARD as base64_standard, Engine as _};
 use ::bytes::Bytes;
 use ::bytestring::ByteString;
 use ::libc;
@@ -24,6 +24,24 @@ pub unsafe extern "C" fn bytes_init(buf: *mut bytes_t) {
         let s = Bytes::new();
         ptr::copy_nonoverlapping(&s, buf, 1);
         mem::forget(s);
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bytes_ptr(bytes: *const bytes_t) -> *const u8 {
+    if bytes.is_null() {
+        ptr::null()
+    } else {
+        (*bytes).as_ptr()
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bytes_size(bytes: *const bytes_t) -> usize {
+    if bytes.is_null() {
+        0
+    } else {
+        (*bytes).len()
     }
 }
 
@@ -136,6 +154,24 @@ pub unsafe extern "C" fn bstr_init(buf: *mut bstr_t) {
         let s = ByteString::new();
         ptr::copy_nonoverlapping(&s, buf, 1);
         mem::forget(s);
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bstr_ptr(s: *const bstr_t) -> *const c_char {
+    if s.is_null() {
+        ptr::null()
+    } else {
+        (*s).as_ptr() as _
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn bstr_size(s: *const bstr_t) -> usize {
+    if s.is_null() {
+        0
+    } else {
+        (*s).len()
     }
 }
 

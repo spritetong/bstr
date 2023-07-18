@@ -10,18 +10,18 @@ extern "C" {
 
 /// @brief Cross-platform shared byte array.
 typedef struct bytes_t {
-    uint8_t *ptr;
-    size_t len;
     void *reserved1;
     void *reserved2;
+    void *reserved3;
+    void *reserved4;
 } bytes_t;
 
 /// @brief Cross-platform shared UTF-8 string without nul terminator.
 typedef struct bstr_t {
-    char *ptr;
-    size_t len;
     void *reserved1;
     void *reserved2;
+    void *reserved3;
+    void *reserved4;
 } bstr_t;
 
 /// Alias of std::string::npos
@@ -34,6 +34,16 @@ typedef struct bstr_t {
 /// @brief Create an empty byte array in place.
 /// @param [out] buf The buffer of the byte array to be intialized.
 extern void bytes_init(bytes_t *buf);
+
+/// @brief Get the internal pointer of the byte array.
+/// @param [in] bytes The pointer of the byte array.
+/// @return The internal pointer of the byte array.
+extern const uint8_t *bytes_ptr(const bytes_t *bytes);
+
+/// @brief Get the size of the byte array.
+/// @param [in] bytes The pointer of the byte array.
+/// @return The size of the byte array.
+extern size_t bytes_size(const bytes_t *bytes);
 
 /// @brief Create an empty byte array.
 /// @return The new array which must be released by \ref bytes_release().
@@ -104,6 +114,16 @@ extern bstr_t bytes_base64_encode(const bytes_t *bytes);
 /// @brief Create an empty string in place.
 /// @param [out] buf The buffer of the string to be intialized.
 extern void bstr_init(bstr_t *buf);
+
+/// @brief Get the internal pointer of the string.
+/// @param [in] s The pointer of the string.
+/// @return The internal pointer of the string.
+extern const char *bstr_ptr(const bstr_t *s);
+
+/// @brief Get the size of the string.
+/// @param [in] s The pointer of the string.
+/// @return The size of the string.
+extern size_t bstr_size(const bstr_t *s);
 
 /// @brief Create an empty string.
 /// @return The new string which must be released by \ref bstr_release().
@@ -302,8 +322,7 @@ public:
 
     Bytes(const bstr_t &str) : m_inner(::bytes_from_bstr(&str)) {}
 
-    Bytes(const void *data, size_t len)
-        : m_inner(::bytes_copy_from_slice(data, len)) {}
+    Bytes(const void *data, size_t len) : m_inner(::bytes_copy_from_slice(data, len)) {}
 
     Bytes(const bytes_t &bytes) : m_inner(::bytes_clone(&bytes)) {}
 
@@ -324,19 +343,19 @@ public:
     operator bytes_t &() { return m_inner; }
 
     /// @brief Get the pointer of the byte array.
-    const uint8_t *ptr() const { return m_inner.ptr; }
+    const uint8_t *ptr() const { return bytes_ptr(&m_inner); }
 
     /// @brief Get number of bytes of the array.
-    size_t size() const { return m_inner.len; }
+    size_t size() const { return bytes_size(&m_inner); }
 
     bool operator==(const Bytes &other) const {
-        return m_inner.len == other.m_inner.len &&
-               ::memcmp(m_inner.ptr, other.m_inner.ptr, m_inner.len) == 0;
+        size_t len = size();
+        return len == other.size() && ::memcmp(ptr(), other.ptr(), len) == 0;
     }
 
     bool operator==(const bytes_t &other) const {
-        return m_inner.len == other.len &&
-               ::memcmp(m_inner.ptr, other.ptr, m_inner.len) == 0;
+        size_t len = size();
+        return len == bytes_size(&other) && ::memcmp(ptr(), bytes_ptr(&other), len) == 0;
     }
 
     Bytes slice(size_t start, size_t stop) const {
@@ -346,9 +365,7 @@ public:
 #if __cplusplus >= 201103L  // C++ 11
     static Bytes from_bytes(bytes_t &&moved) { return Bytes(moved, 0); }
 
-    Bytes(Bytes &&other) : m_inner(other.m_inner) {
-        ::bytes_init(&other.m_inner);
-    }
+    Bytes(Bytes &&other) : m_inner(other.m_inner) { ::bytes_init(&other.m_inner); }
 
     Bytes &operator=(Bytes &&other) {
         if (this != &other) {
@@ -393,25 +410,19 @@ public:
 
     ByteString(const bytes_t &bytes) : m_inner(::bstr_from_bytes(&bytes)) {}
 
-    ByteString(const CStr &utf8)
-        : m_inner(::bstr_from_utf8(utf8, utf8.size())) {}
+    ByteString(const CStr &utf8) : m_inner(::bstr_from_utf8(utf8, utf8.size())) {}
 
-    ByteString(const char *utf8, size_t len = NPOS)
-        : m_inner(::bstr_from_utf8(utf8, len)) {}
+    ByteString(const char *utf8, size_t len = NPOS) : m_inner(::bstr_from_utf8(utf8, len)) {}
 
-    ByteString(const uint16_t *utf16, size_t len = NPOS)
-        : m_inner(::bstr_from_utf16(utf16, len)) {}
+    ByteString(const uint16_t *utf16, size_t len = NPOS) : m_inner(::bstr_from_utf16(utf16, len)) {}
 
-    ByteString(const uint32_t *utf32, size_t len = NPOS)
-        : m_inner(::bstr_from_utf32(utf32, len)) {}
+    ByteString(const uint32_t *utf32, size_t len = NPOS) : m_inner(::bstr_from_utf32(utf32, len)) {}
 
-    ByteString(const wchar_t *wstr, size_t len = NPOS)
-        : m_inner(::bstr_from_wchar(wstr, len)) {}
+    ByteString(const wchar_t *wstr, size_t len = NPOS) : m_inner(::bstr_from_wchar(wstr, len)) {}
 
     ByteString(const bstr_t &str) : m_inner(::bstr_clone(&str)) {}
 
-    ByteString(const ByteString &other)
-        : m_inner(::bstr_clone(&other.m_inner)) {}
+    ByteString(const ByteString &other) : m_inner(::bstr_clone(&other.m_inner)) {}
 
     ByteString &operator=(const ByteString &other) {
         if (this != &other) {
@@ -429,36 +440,34 @@ public:
 
     /// @brief Get the pointer of the string, it's a C string and has no nul
     /// terminator.
-    const char *ptr() const { return m_inner.ptr; }
+    const char *ptr() const { return bstr_ptr(&m_inner); }
 
     /// @brief Get the length of the string
-    size_t size() const { return m_inner.len; }
+    size_t size() const { return bstr_size(&m_inner); }
 
-    operator CStr() const { return CStr(m_inner.ptr, m_inner.len); }
+    operator CStr() const { return CStr(ptr(), size()); }
 
-    CStr as_cstr() const { return CStr(m_inner.ptr, m_inner.len); }
+    CStr as_cstr() const { return CStr(ptr(), size()); }
 
     bool operator==(const ByteString &other) const {
-        return m_inner.len == other.m_inner.len &&
-               ::memcmp(m_inner.ptr, other.m_inner.ptr, m_inner.len) == 0;
+        size_t len = size();
+        return len == other.size() && ::memcmp(ptr(), other.ptr(), len) == 0;
     }
 
     bool operator==(const bstr_t &other) const {
-        return m_inner.len == other.len &&
-               ::memcmp(m_inner.ptr, other.ptr, m_inner.len) == 0;
+        size_t len = size();
+        return len == bstr_size(&other) && ::memcmp(ptr(), bstr_ptr(&other), len) == 0;
     }
 
     bool operator==(const char *other) const {
-        return ::strncmp(m_inner.ptr, other, m_inner.len) == 0 &&
-               other[m_inner.len] == '\0';
+        size_t len = size();
+        return ::strncmp(ptr(), other, len) == 0 && other[len] == '\0';
     }
 
 #if __cplusplus >= 201103L  // C++ 11
     static ByteString from_bstr(bstr_t &&moved) { return ByteString(moved, 0); }
 
-    ByteString(ByteString &&other) : m_inner(other.m_inner) {
-        ::bstr_init(&other.m_inner);
-    }
+    ByteString(ByteString &&other) : m_inner(other.m_inner) { ::bstr_init(&other.m_inner); }
 
     ByteString &operator=(ByteString &&other) {
         if (this != &other) {
@@ -469,16 +478,12 @@ public:
 #endif
 
 #if (_BSTR_HAS_STD)
-    ByteString(const std::string &str)
-        : m_inner(::bstr_from_utf8(str.c_str(), str.size())) {}
+    ByteString(const std::string &str) : m_inner(::bstr_from_utf8(str.c_str(), str.size())) {}
 
-    ByteString(const std::wstring &wstr)
-        : m_inner(::bstr_from_wchar(wstr.c_str(), wstr.size())) {}
+    ByteString(const std::wstring &wstr) : m_inner(::bstr_from_wchar(wstr.c_str(), wstr.size())) {}
 
     /// @brief Convert to a std::string.
-    operator std::string() const {
-        return std::string(m_inner.ptr, m_inner.len);
-    }
+    operator std::string() const { return std::string(ptr(), size()); }
 
     /// @brief Convert to a std::wstring.
     operator std::wstring() const {
@@ -511,9 +516,7 @@ inline Bytes Bytes::base64_decode(const ByteString &str) {
     return Bytes(::bytes_base64_decode(str), 0);
 }
 
-inline ByteString Bytes::base64_encode() {
-    return ByteString(::bytes_base64_encode(&m_inner), 0);
-}
+inline ByteString Bytes::base64_encode() { return ByteString(::bytes_base64_encode(&m_inner), 0); }
 
 #endif  // __cplusplus
 
