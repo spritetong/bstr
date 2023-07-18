@@ -93,10 +93,10 @@ class Bytes(Structure):
 class Bstr(Structure):
     NPOS = c_size_t(-1)
 
-    _fields_ = [('ptr', c_void_p),
-                ('size', c_size_t),
-                ('reserved1', c_void_p),
-                ('reserved2', c_void_p), ]
+    _fields_ = [('reserved1', c_void_p),
+                ('reserved2', c_void_p),
+                ('reserved3', c_void_p),
+                ('reserved4', c_void_p), ]
 
     def __init__(self, s: Optional[Union['Bstr', 'Bytes', c_char_p, bytes, c_wchar_p, str]] = None):
         api.bstr_init(pointer(self))
