@@ -198,7 +198,7 @@ extern uint32_t *bstr_dup_utf32(const bstr_t *s);
 /// @param [in] ptr
 extern void bstr_mem_free(void *ptr);
 
-#if WCHAR_MAX == 0xffff
+#if (WCHAR_MAX == 0xffff)
 #define bstr_from_wchar(str, len) bstr_from_utf16((const uint16_t *)(str), len)
 #define bstr_dup_wchar(s) ((wchar_t *)bstr_dup_utf16(s))
 #else
@@ -210,6 +210,8 @@ extern void bstr_mem_free(void *ptr);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+
+#if (!defined(_BSTR_NO_CPP) || _BSTR_NO_CPP == 0)
 
 #ifndef _BSTR_HAS_STD
 #define _BSTR_HAS_STD 1
@@ -518,6 +520,7 @@ inline Bytes Bytes::base64_decode(const ByteString &str) {
 
 inline ByteString Bytes::base64_encode() { return ByteString(::bytes_base64_encode(&m_inner), 0); }
 
+#endif  // _BSTR_NO_CPP
 #endif  // __cplusplus
 
 #endif  // __BSTR_H___
