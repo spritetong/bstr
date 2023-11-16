@@ -203,7 +203,10 @@ pub unsafe extern "C" fn bstr_from_static(static_str: *const c_char, len: usize)
         } else {
             len
         };
-        ByteString::from_static(mem::transmute(slice::from_raw_parts(static_str, len)))
+        ByteString::from_static(std::str::from_utf8_unchecked(slice::from_raw_parts(
+            static_str.cast::<u8>(),
+            len,
+        )))
     }
 }
 
