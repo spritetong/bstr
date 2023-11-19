@@ -346,8 +346,9 @@ class BstrApi:
                     self.dll = cdll.LoadLibrary(dll_path)
                     self.dll_path = dll_path
                     self.dll_name = dll_name
+                    break
             except OSError:
-                continue
+                pass
 
         if self.dll is None:
             raise RuntimeError("Can not load library {}".format(dll_name))
