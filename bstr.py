@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 import os
@@ -7,7 +7,7 @@ from ctypes import *
 from typing import *
 
 
-__all__ = ('Bytes', 'Bstr', 'bstr_api')
+__all__ = ('Bytes', 'Bstr', 'c_bytes_p', 'c_bstr_p', 'bstr_api')
 
 
 class Bytes(Structure):
@@ -24,12 +24,12 @@ class Bytes(Structure):
             api.bytes_swap(pointer(self), pointer(api.bytes_alloc(s)))
         elif isinstance(s, Bytes):
             api.bytes_swap(pointer(self), pointer(api.bytes_clone(pointer(s))))
-        elif isinstance(s, POINTER(Bytes)):
+        elif isinstance(s, c_bytes_p):
             api.bytes_swap(pointer(self), pointer(api.bytes_clone(s)))
         elif isinstance(s, Bstr):
             api.bytes_swap(pointer(self), pointer(
                 api.bytes_from_bstr(pointer(s))))
-        elif isinstance(s, POINTER(Bstr)):
+        elif isinstance(s, c_bstr_p):
             api.bytes_swap(pointer(self), pointer(api.bytes_from_bstr(s)))
         elif isinstance(s, c_char_p):
             api.bytes_swap(pointer(self), pointer(
@@ -41,6 +41,11 @@ class Bytes(Structure):
             pass
         else:
             raise TypeError('Invalid type: {}'.format(type(s)))
+
+    @staticmethod
+    def clone_from_address(address: Union[c_void_p, int]) -> 'Bytes':
+        p = c_void_p(address)
+        return api.bytes_clone(c_bytes_p.from_address(addressof(p)))
 
     def __del__(self):
         api.bytes_release(pointer(self))
@@ -102,12 +107,12 @@ class Bstr(Structure):
         api.bstr_init(pointer(self))
         if isinstance(s, Bstr):
             api.bstr_swap(pointer(self), pointer(api.bstr_clone(pointer(s))))
-        elif isinstance(s, POINTER(Bstr)):
+        elif isinstance(s, c_bstr_p):
             api.bstr_swap(pointer(self), pointer(api.bstr_clone(s)))
         elif isinstance(s, Bytes):
             api.bstr_swap(pointer(self), pointer(
                 api.bstr_from_bytes(pointer(s))))
-        elif isinstance(s, POINTER(Bytes)):
+        elif isinstance(s, c_bytes_p):
             api.bstr_swap(pointer(self), pointer(api.bstr_from_bytes(s)))
         elif isinstance(s, c_char_p):
             api.bstr_swap(pointer(self), pointer(
@@ -125,6 +130,11 @@ class Bstr(Structure):
             pass
         else:
             raise TypeError('Invalid type: {}'.format(type(s)))
+
+    @staticmethod
+    def clone_from_address(address: Union[c_void_p, int]) -> 'Bstr':
+        p = c_void_p(address)
+        return api.bstr_clone(c_bstr_p.from_address(addressof(p)))
 
     def __del__(self):
         api.bstr_release(pointer(self))
@@ -176,13 +186,13 @@ class BstrApi:
 
         ####################################################################
 
-        prototype = CFUNCTYPE(None, POINTER(Bytes))
+        prototype = CFUNCTYPE(None, c_bytes_p)
         self.bytes_init = prototype(('bytes_init', dll))
 
-        prototype = CFUNCTYPE(c_void_p, POINTER(Bytes))
+        prototype = CFUNCTYPE(c_void_p, c_bytes_p)
         self.bytes_ptr = prototype(('bytes_ptr', dll))
 
-        prototype = CFUNCTYPE(c_size_t, POINTER(Bytes))
+        prototype = CFUNCTYPE(c_size_t, c_bytes_p)
         self.bytes_size = prototype(('bytes_size', dll))
 
         prototype = CFUNCTYPE(Bytes)
@@ -195,50 +205,41 @@ class BstrApi:
         self.bytes_zalloc = prototype(('bytes_zalloc', dll))
 
         prototype = CFUNCTYPE(Bytes, c_void_p, c_size_t)
-        self.bytes_from_static = prototype(
-            ('bytes_from_static', dll))
+        self.bytes_from_static = prototype(('bytes_from_static', dll))
 
-        prototype = CFUNCTYPE(Bytes, POINTER(Bstr))
-        self.bytes_from_bstr = prototype(
-            ('bytes_from_bstr', dll))
+        prototype = CFUNCTYPE(Bytes, c_bstr_p)
+        self.bytes_from_bstr = prototype(('bytes_from_bstr', dll))
 
         prototype = CFUNCTYPE(Bytes, c_void_p, c_size_t)
-        self.bytes_copy_from_slice = prototype(
-            ('bytes_copy_from_slice', dll))
+        self.bytes_copy_from_slice = prototype(('bytes_copy_from_slice', dll))
 
-        prototype = CFUNCTYPE(Bytes, POINTER(Bytes), c_size_t, c_size_t)
-        self.bytes_slice = prototype(
-            ('bytes_slice', dll))
+        prototype = CFUNCTYPE(Bytes, c_bytes_p, c_size_t, c_size_t)
+        self.bytes_slice = prototype(('bytes_slice', dll))
 
-        prototype = CFUNCTYPE(Bytes, POINTER(Bytes))
-        self.bytes_clone = prototype(
-            ('bytes_clone', dll))
+        prototype = CFUNCTYPE(Bytes, c_bytes_p)
+        self.bytes_clone = prototype(('bytes_clone', dll))
 
-        prototype = CFUNCTYPE(POINTER(Bytes))
-        self.bytes_release = prototype(
-            ('bytes_release', dll))
+        prototype = CFUNCTYPE(c_bytes_p)
+        self.bytes_release = prototype(('bytes_release', dll))
 
-        prototype = CFUNCTYPE(None, POINTER(Bytes), POINTER(Bytes))
-        self.bytes_swap = prototype(
-            ('bytes_swap', dll))
+        prototype = CFUNCTYPE(None, c_bytes_p, c_bytes_p)
+        self.bytes_swap = prototype(('bytes_swap', dll))
 
-        prototype = CFUNCTYPE(Bytes, POINTER(Bstr))
-        self.bytes_base64_decode = prototype(
-            ('bytes_base64_decode', dll))
+        prototype = CFUNCTYPE(Bytes, c_bstr_p)
+        self.bytes_base64_decode = prototype(('bytes_base64_decode', dll))
 
-        prototype = CFUNCTYPE(Bstr, POINTER(Bytes))
-        self.bytes_base64_encode = prototype(
-            ('bytes_base64_encode', dll))
+        prototype = CFUNCTYPE(Bstr, c_bytes_p)
+        self.bytes_base64_encode = prototype(('bytes_base64_encode', dll))
 
         ####################################################################
 
-        prototype = CFUNCTYPE(None, POINTER(Bstr))
+        prototype = CFUNCTYPE(None, c_bstr_p)
         self.bstr_init = prototype(('bstr_init', dll))
 
-        prototype = CFUNCTYPE(c_void_p, POINTER(Bstr))
+        prototype = CFUNCTYPE(c_void_p, c_bstr_p)
         self.bstr_ptr = prototype(('bstr_ptr', dll))
 
-        prototype = CFUNCTYPE(c_size_t, POINTER(Bstr))
+        prototype = CFUNCTYPE(c_size_t, c_bstr_p)
         self.bstr_size = prototype(('bstr_size', dll))
 
         prototype = CFUNCTYPE(Bstr)
@@ -248,65 +249,51 @@ class BstrApi:
         self.bstr_from_static = prototype(
             ('bstr_from_static', dll))
 
-        prototype = CFUNCTYPE(Bstr, POINTER(Bytes))
+        prototype = CFUNCTYPE(Bstr, c_bytes_p)
         self.bstr_from_bytes = prototype(
             ('bstr_from_bytes', dll))
 
         prototype = CFUNCTYPE(Bstr, POINTER(c_char), c_size_t)
-        self.bstr_from_utf8 = prototype(
-            ('bstr_from_utf8', dll))
+        self.bstr_from_utf8 = prototype(('bstr_from_utf8', dll))
 
         prototype = CFUNCTYPE(Bstr, POINTER(c_uint16), c_size_t)
-        self.bstr_from_utf16 = prototype(
-            ('bstr_from_utf16', dll))
+        self.bstr_from_utf16 = prototype(('bstr_from_utf16', dll))
 
         prototype = CFUNCTYPE(Bstr, POINTER(c_uint32), c_size_t)
-        self.bstr_from_utf32 = prototype(
-            ('bstr_from_utf32', dll))
+        self.bstr_from_utf32 = prototype(('bstr_from_utf32', dll))
 
         prototype = CFUNCTYPE(Bstr, POINTER(c_wchar), c_size_t)
         if sizeof(c_wchar) == 2:
-            self.bstr_from_wchar = prototype(
-                ('bstr_from_utf16', dll))
+            self.bstr_from_wchar = prototype(('bstr_from_utf16', dll))
         elif sizeof(c_wchar) == 4:
-            self.bstr_from_wchar = prototype(
-                ('bstr_from_utf32', dll))
+            self.bstr_from_wchar = prototype(('bstr_from_utf32', dll))
 
-        prototype = CFUNCTYPE(Bstr, POINTER(Bstr))
-        self.bstr_clone = prototype(
-            ('bstr_clone', dll))
+        prototype = CFUNCTYPE(Bstr, c_bstr_p)
+        self.bstr_clone = prototype(('bstr_clone', dll))
 
-        prototype = CFUNCTYPE(POINTER(Bstr))
-        self.bstr_release = prototype(
-            ('bstr_release', dll))
+        prototype = CFUNCTYPE(c_bstr_p)
+        self.bstr_release = prototype(('bstr_release', dll))
 
-        prototype = CFUNCTYPE(None, POINTER(Bstr), POINTER(Bstr))
-        self.bstr_swap = prototype(
-            ('bstr_swap', dll))
+        prototype = CFUNCTYPE(None, c_bstr_p, c_bstr_p)
+        self.bstr_swap = prototype(('bstr_swap', dll))
 
-        prototype = CFUNCTYPE(c_char_p, POINTER(Bstr))
-        self.bstr_dup_utf8 = prototype(
-            ('bstr_dup_utf8', dll))
+        prototype = CFUNCTYPE(c_char_p, c_bstr_p)
+        self.bstr_dup_utf8 = prototype(('bstr_dup_utf8', dll))
 
-        prototype = CFUNCTYPE(POINTER(c_uint16), POINTER(Bstr))
-        self.bstr_dup_utf16 = prototype(
-            ('bstr_dup_utf16', dll))
+        prototype = CFUNCTYPE(POINTER(c_uint16), c_bstr_p)
+        self.bstr_dup_utf16 = prototype(('bstr_dup_utf16', dll))
 
-        prototype = CFUNCTYPE(POINTER(c_uint32), POINTER(Bstr))
-        self.bstr_dup_utf32 = prototype(
-            ('bstr_dup_utf32', dll))
+        prototype = CFUNCTYPE(POINTER(c_uint32), c_bstr_p)
+        self.bstr_dup_utf32 = prototype(('bstr_dup_utf32', dll))
 
-        prototype = CFUNCTYPE(c_wchar_p, POINTER(Bstr))
+        prototype = CFUNCTYPE(c_wchar_p, c_bstr_p)
         if sizeof(c_wchar) == 2:
-            self.bstr_dup_wchar = prototype(
-                ('bstr_dup_utf16', dll))
+            self.bstr_dup_wchar = prototype(('bstr_dup_utf16', dll))
         elif sizeof(c_wchar) == 4:
-            self.bstr_dup_wchar = prototype(
-                ('bstr_dup_utf32', dll))
+            self.bstr_dup_wchar = prototype(('bstr_dup_utf32', dll))
 
         prototype = CFUNCTYPE(None, c_void_p)
-        self.bstr_mem_free = prototype(
-            ('bstr_mem_free', dll))
+        self.bstr_mem_free = prototype(('bstr_mem_free', dll))
 
         return dll
 
@@ -354,6 +341,9 @@ class BstrApi:
             raise RuntimeError("Can not load library {}".format(dll_name))
         return self.dll
 
+
+c_bytes_p = POINTER(Bytes)
+c_bstr_p = POINTER(Bstr)
 
 api = BstrApi()
 
