@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import os
+import sys
 import itertools
 from ctypes import *
 from typing import *
@@ -170,10 +171,11 @@ class BstrApi:
         self.dll_name = ''
         self.dll: CDLL = None
 
-    def load_library(self, dll: Union[str, CDLL]) -> CDLL:
+    def load_library(self, dll: Union[str, CDLL], *,
+                     dirs: Optional[Union[List[str], str]] = None) -> CDLL:
         if self.dll is None:
             if isinstance(dll, str):
-                dll = self._load_dll(dll)
+                dll = self._load_dll(dll, dirs)
             elif isinstance(dll, CDLL):
                 self.dll = dll
             else:
@@ -297,9 +299,30 @@ class BstrApi:
 
         return dll
 
-    def _load_dll(self, dll_name: str) -> CDLL:
+    def _load_dll(self, dll_name: str, dirs: Optional[List[str]] = None) -> CDLL:
         if self.dll is not None:
             return self.dll
+
+        if os.path.splitext(dll_name)[1] == '':
+            if sys.platform == 'win32':
+                dll_name += '.dll'
+            elif sys.platform == 'darwin':
+                dll_name += '.dylib'
+            else:
+                dll_name += '.so'
+                if not dll_name.startswith('lib'):
+                    dll_name = 'lib' + dll_name
+
+        if not dirs:
+            triple_dirs = []
+        elif isinstance(dirs, str):
+            triple_dirs = [dirs]
+        elif isinstance(dirs, (list, tuple)):
+            triple_dirs = list(dirs)
+        else:
+            raise TypeError('`triple_dirs` must be str or list.')
+        if 'target' not in triple_dirs:
+            triple_dirs.append('target')
 
         def search_path():
             # '' and '.'
@@ -307,20 +330,30 @@ class BstrApi:
             yield os.path.realpath('.')
             # in <workspace dir>/target/
             path = os.path.realpath(os.path.dirname(__file__))
-            while path:
-                target = os.path.join(path, 'target')
-                if os.path.isdir(target):
-                    dirs = [target]
-                    for item in os.listdir(target):
-                        dir = os.path.join(target, item)
-                        # matches triple like "x86_64-pc-windows-msvc"
-                        if os.path.isdir(dir) and len(item.split('-')) in (3, 4):
-                            dirs.append(dir)
-                    for suffix in itertools.product(dirs, ['debug', 'release']):
-                        dir = os.path.join(*suffix)
-                        if os.path.isdir(dir):
-                            yield dir
-                    break
+            in_workspace = False
+            while path and not in_workspace:
+                for (i, triple_dir) in enumerate(triple_dirs):
+                    if not triple_dir:
+                        continue
+                    if os.path.isabs(triple_dir):
+                        target = triple_dir
+                        triple_dirs[i] = triple_dir = None
+                    else:
+                        target = os.path.join(path, triple_dir)
+                    if os.path.isdir(target):
+                        if triple_dir is not None:
+                            # Found the relative path in the workspace.
+                            in_workspace = True
+                        dirs = [target]
+                        for item in os.listdir(target):
+                            dir = os.path.join(target, item)
+                            # matches triple like "x86_64-pc-windows-msvc"
+                            if os.path.isdir(dir) and len(item.split('-')) in (3, 4):
+                                dirs.append(dir)
+                        for suffix in itertools.product(dirs, ['debug', 'release', 'bin', 'lib']):
+                            dir = os.path.join(*suffix)
+                            if os.path.isdir(dir):
+                                yield dir
                 parent = os.path.dirname(path)
                 if path == parent:
                     break
@@ -355,7 +388,7 @@ def bstr_api() -> BstrApi:
 if __name__ == '__main__':
     import copy
 
-    bstr_api().load_library('bstr.dll')
+    bstr_api().load_library('bstr')
 
     for _ in range(1):
         print(api.bstr_new())
