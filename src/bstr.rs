@@ -31,7 +31,7 @@ pub unsafe extern "C" fn bytes_ptr(bytes: *const bytes_t) -> *const u8 {
     if bytes.is_null() {
         ptr::null()
     } else {
-        (*bytes).as_ptr()
+        (&*bytes).as_ptr()
     }
 }
 
@@ -40,7 +40,7 @@ pub unsafe extern "C" fn bytes_size(bytes: *const bytes_t) -> usize {
     if bytes.is_null() {
         0
     } else {
-        (*bytes).len()
+        (&*bytes).len()
     }
 }
 
@@ -76,7 +76,7 @@ pub unsafe extern "C" fn bytes_from_bstr(s: *const bstr_t) -> bytes_t {
     if s.is_null() {
         Bytes::new()
     } else {
-        (*s).clone().into_bytes()
+        (&*s).clone().into_bytes()
     }
 }
 
@@ -105,7 +105,7 @@ pub unsafe extern "C" fn bytes_clone(bytes: *const bytes_t) -> bytes_t {
     if bytes.is_null() {
         Bytes::new()
     } else {
-        (*bytes).clone()
+        (&*bytes).clone()
     }
 }
 
@@ -161,7 +161,7 @@ pub unsafe extern "C" fn bstr_ptr(s: *const bstr_t) -> *const c_char {
     if s.is_null() {
         ptr::null()
     } else {
-        (*s).as_ptr() as _
+        (&*s).as_ptr() as _
     }
 }
 
@@ -170,7 +170,7 @@ pub unsafe extern "C" fn bstr_size(s: *const bstr_t) -> usize {
     if s.is_null() {
         0
     } else {
-        (*s).len()
+        (&*s).len()
     }
 }
 
@@ -263,7 +263,7 @@ pub unsafe extern "C" fn bstr_clone(s: *const bstr_t) -> bstr_t {
     if s.is_null() {
         ByteString::new()
     } else {
-        (*s).clone()
+        (&*s).clone()
     }
 }
 
