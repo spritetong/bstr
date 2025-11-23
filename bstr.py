@@ -1,17 +1,34 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import builtins
+import ctypes
+import itertools
 import os
 import sys
-import itertools
-from ctypes import *
-from typing import *
-
+from ctypes import (
+    CDLL,
+    CFUNCTYPE,
+    POINTER,
+    ArgumentError,
+    c_char,
+    c_char_p,
+    c_size_t,
+    c_uint8,
+    c_uint16,
+    c_uint32,
+    c_void_p,
+    c_wchar,
+    c_wchar_p,
+    pointer,
+    string_at,
+)
+from typing import List, Optional, Union
 
 __all__ = ('Bytes', 'Bstr', 'c_bytes_p', 'c_bstr_p', 'bstr_api')
 
 
-class Bytes(Structure):
+class Bytes(ctypes.Structure):
     """A memory-safe byte array wrapper for the native bstr library.
 
     This class provides a Python interface to the native byte array implementation,
@@ -39,12 +56,17 @@ class Bytes(Structure):
         >>> print(b.bytes())
         b'Hello'
     """
-    _fields_ = [('reserved1', c_void_p),
-                ('reserved2', c_void_p),
-                ('reserved3', c_void_p),
-                ('reserved4', c_void_p), ]
 
-    def __init__(self, s: Optional[Union[int, 'Bytes', 'Bstr', c_char_p, bytes]] = None):
+    _fields_ = [
+        ('reserved1', c_void_p),
+        ('reserved2', c_void_p),
+        ('reserved3', c_void_p),
+        ('reserved4', c_void_p),
+    ]
+
+    def __init__(
+        self, s: Optional[Union[int, 'Bytes', 'Bstr', c_char_p, bytes]] = None
+    ):
         """Initialize a new Bytes instance.
 
         Args:
@@ -70,16 +92,16 @@ class Bytes(Structure):
         elif isinstance(s, c_bytes_p):
             api.bytes_swap(pointer(self), pointer(api.bytes_clone(s)))
         elif isinstance(s, Bstr):
-            api.bytes_swap(pointer(self), pointer(
-                api.bytes_from_bstr(pointer(s))))
+            api.bytes_swap(pointer(self), pointer(api.bytes_from_bstr(pointer(s))))
         elif isinstance(s, c_bstr_p):
             api.bytes_swap(pointer(self), pointer(api.bytes_from_bstr(s)))
         elif isinstance(s, c_char_p):
-            api.bytes_swap(pointer(self), pointer(
-                api.bytes_copy_from_slice(s, len(s.value))))
+            api.bytes_swap(
+                pointer(self),
+                pointer(api.bytes_copy_from_slice(s, len(s.value) if s.value else 0)),
+            )
         elif isinstance(s, bytes):
-            api.bytes_swap(pointer(self), pointer(
-                api.bytes_copy_from_slice(s, len(s))))
+            api.bytes_swap(pointer(self), pointer(api.bytes_copy_from_slice(s, len(s))))
         elif s is None:
             pass
         else:
@@ -95,8 +117,7 @@ class Bytes(Structure):
         Returns:
             A new Bytes instance containing a copy of the data
         """
-        p = c_void_p(address)
-        return api.bytes_clone(c_bytes_p.from_address(addressof(p)))
+        return api.bytes_clone(ctypes.cast(address, c_bstr_p))
 
     def __del__(self):
         """Release the underlying memory when the object is destroyed."""
@@ -133,10 +154,10 @@ class Bytes(Structure):
             if key < 0:  # Handle negative indices
                 key += len(self)
             if key < 0 or key >= len(self):
-                raise IndexError("The index ({}) is out of range.".format(key))
-            return c_uint8.from_address(self.ptr() + key).value
+                raise IndexError('The index ({}) is out of range.'.format(key))
+            return c_uint8.from_address((self.ptr().value or 0) + key).value
         else:
-            raise IndexError("Invalid argument type.")
+            raise IndexError('Invalid argument type.')
 
     def __copy__(self) -> 'Bytes':
         """Create a shallow copy of the byte array.
@@ -195,7 +216,9 @@ class Bytes(Structure):
         return api.bytes_base64_encode(pointer(self))
 
     @staticmethod
-    def base64_decode(s: Union['Bstr', 'Bytes', c_char_p, bytes, c_wchar_p, str]) -> 'Bytes':
+    def base64_decode(
+        s: Union['Bstr', 'Bytes', c_char_p, builtins.bytes, c_wchar_p, str],
+    ) -> 'Bytes':
         """Decode base64 data into a byte array.
 
         Args:
@@ -207,7 +230,7 @@ class Bytes(Structure):
         return api.bytes_base64_decode(pointer(Bstr(s)))
 
 
-class Bstr(Structure):
+class Bstr(ctypes.Structure):
     """A memory-safe string wrapper for the native bstr library.
 
     This class provides a Python interface to the native string implementation,
@@ -236,14 +259,20 @@ class Bstr(Structure):
         >>> print(s.str())
         'Hello'
     """
+
     NPOS = c_size_t(-1)
 
-    _fields_ = [('reserved1', c_void_p),
-                ('reserved2', c_void_p),
-                ('reserved3', c_void_p),
-                ('reserved4', c_void_p), ]
+    _fields_ = [
+        ('reserved1', c_void_p),
+        ('reserved2', c_void_p),
+        ('reserved3', c_void_p),
+        ('reserved4', c_void_p),
+    ]
 
-    def __init__(self, s: Optional[Union['Bstr', 'Bytes', c_char_p, bytes, c_wchar_p, str]] = None):
+    def __init__(
+        self,
+        s: Optional[Union['Bstr', 'Bytes', c_char_p, bytes, c_wchar_p, str]] = None,
+    ):
         """Initialize a new Bstr instance.
 
         Args:
@@ -265,22 +294,17 @@ class Bstr(Structure):
         elif isinstance(s, c_bstr_p):
             api.bstr_swap(pointer(self), pointer(api.bstr_clone(s)))
         elif isinstance(s, Bytes):
-            api.bstr_swap(pointer(self), pointer(
-                api.bstr_from_bytes(pointer(s))))
+            api.bstr_swap(pointer(self), pointer(api.bstr_from_bytes(pointer(s))))
         elif isinstance(s, c_bytes_p):
             api.bstr_swap(pointer(self), pointer(api.bstr_from_bytes(s)))
         elif isinstance(s, c_char_p):
-            api.bstr_swap(pointer(self), pointer(
-                api.bstr_from_utf8(s, Bstr.NPOS)))
+            api.bstr_swap(pointer(self), pointer(api.bstr_from_utf8(s, Bstr.NPOS)))
         elif isinstance(s, bytes):
-            api.bstr_swap(pointer(self), pointer(
-                api.bstr_from_utf8(s, len(s))))
+            api.bstr_swap(pointer(self), pointer(api.bstr_from_utf8(s, len(s))))
         elif isinstance(s, c_wchar_p):
-            api.bstr_swap(pointer(self), pointer(
-                api.bstr_from_wchar(s, Bstr.NPOS)))
+            api.bstr_swap(pointer(self), pointer(api.bstr_from_wchar(s, Bstr.NPOS)))
         elif isinstance(s, str):
-            api.bstr_swap(pointer(self), pointer(
-                api.bstr_from_wchar(s, len(s))))
+            api.bstr_swap(pointer(self), pointer(api.bstr_from_wchar(s, len(s))))
         elif s is None:
             pass
         else:
@@ -296,8 +320,7 @@ class Bstr(Structure):
         Returns:
             A new Bstr instance containing a copy of the data
         """
-        p = c_void_p(address)
-        return api.bstr_clone(c_bstr_p.from_address(addressof(p)))
+        return api.bstr_clone(ctypes.cast(address, c_bstr_p))
 
     def __del__(self):
         """Release the underlying memory when the object is destroyed."""
@@ -388,14 +411,16 @@ class BstrApi:
         >>> # Load from specific directory
         >>> api.load_library('bstr', dirs=['path/to/lib'])
     """
+
     def __init__(self):
         """Initialize the API wrapper."""
         self.dll_path = ''
         self.dll_name = ''
-        self.dll: CDLL = None
+        self.dll: Optional[CDLL] = None
 
-    def load_library(self, dll: Union[str, CDLL], *,
-                     dirs: Optional[Union[List[str], str]] = None) -> CDLL:
+    def load_library(
+        self, dll: Union[str, CDLL], *, dirs: Optional[Union[List[str], str]] = None
+    ) -> CDLL:
         """Load the native library and initialize API functions.
 
         Args:
@@ -418,7 +443,8 @@ class BstrApi:
                 raise TypeError('Invalid argument type {}'.format(type(dll)))
         elif isinstance(dll, CDLL) and dll is not self.dll:
             raise RuntimeError(
-                'Can not initialize API library {} more than once'.format(dll))
+                'Can not initialize API library {} more than once'.format(dll)
+            )
         else:
             dll = self.dll
 
@@ -484,12 +510,10 @@ class BstrApi:
         self.bstr_new = prototype(('bstr_new', dll))
 
         prototype = CFUNCTYPE(Bstr, POINTER(c_char), c_size_t)
-        self.bstr_from_static = prototype(
-            ('bstr_from_static', dll))
+        self.bstr_from_static = prototype(('bstr_from_static', dll))
 
         prototype = CFUNCTYPE(Bstr, c_bytes_p)
-        self.bstr_from_bytes = prototype(
-            ('bstr_from_bytes', dll))
+        self.bstr_from_bytes = prototype(('bstr_from_bytes', dll))
 
         prototype = CFUNCTYPE(Bstr, POINTER(c_char), c_size_t)
         self.bstr_from_utf8 = prototype(('bstr_from_utf8', dll))
@@ -501,9 +525,9 @@ class BstrApi:
         self.bstr_from_utf32 = prototype(('bstr_from_utf32', dll))
 
         prototype = CFUNCTYPE(Bstr, POINTER(c_wchar), c_size_t)
-        if sizeof(c_wchar) == 2:
+        if ctypes.sizeof(c_wchar) == 2:
             self.bstr_from_wchar = prototype(('bstr_from_utf16', dll))
-        elif sizeof(c_wchar) == 4:
+        elif ctypes.sizeof(c_wchar) == 4:
             self.bstr_from_wchar = prototype(('bstr_from_utf32', dll))
 
         prototype = CFUNCTYPE(Bstr, c_bstr_p)
@@ -525,9 +549,9 @@ class BstrApi:
         self.bstr_dup_utf32 = prototype(('bstr_dup_utf32', dll))
 
         prototype = CFUNCTYPE(c_wchar_p, c_bstr_p)
-        if sizeof(c_wchar) == 2:
+        if ctypes.sizeof(c_wchar) == 2:
             self.bstr_dup_wchar = prototype(('bstr_dup_utf16', dll))
-        elif sizeof(c_wchar) == 4:
+        elif ctypes.sizeof(c_wchar) == 4:
             self.bstr_dup_wchar = prototype(('bstr_dup_utf32', dll))
 
         prototype = CFUNCTYPE(None, c_void_p)
@@ -535,7 +559,9 @@ class BstrApi:
 
         return dll
 
-    def _load_dll(self, dll_name: str, dirs: Optional[List[str]] = None) -> CDLL:
+    def _load_dll(
+        self, dll_name: str, dirs: Optional[Union[List[str], str]] = None
+    ) -> CDLL:
         if self.dll is not None:
             return self.dll
 
@@ -550,7 +576,7 @@ class BstrApi:
                     dll_name = 'lib' + dll_name
 
         if not dirs:
-            triple_dirs = []
+            triple_dirs: List[Optional[str]] = []
         elif isinstance(dirs, str):
             triple_dirs = [dirs]
         elif isinstance(dirs, (list, tuple)):
@@ -568,7 +594,7 @@ class BstrApi:
             path = os.path.realpath(os.path.dirname(__file__))
             in_workspace = False
             while path and not in_workspace:
-                for (i, triple_dir) in enumerate(triple_dirs):
+                for i, triple_dir in enumerate(triple_dirs):
                     if not triple_dir:
                         continue
                     if os.path.isabs(triple_dir):
@@ -586,7 +612,9 @@ class BstrApi:
                             # matches triple like "x86_64-pc-windows-msvc"
                             if os.path.isdir(dir) and len(item.split('-')) in (3, 4):
                                 dirs.append(dir)
-                        for suffix in itertools.product(dirs, ['debug', 'release', 'bin', 'lib']):
+                        for suffix in itertools.product(
+                            dirs, ['debug', 'release', 'bin', 'lib']
+                        ):
                             dir = os.path.join(*suffix)
                             if os.path.isdir(dir):
                                 yield dir
@@ -599,7 +627,7 @@ class BstrApi:
             try:
                 if self.dll is None:
                     dll_path = os.path.join(dir, dll_name)
-                    self.dll = cdll.LoadLibrary(dll_path)
+                    self.dll = ctypes.cdll.LoadLibrary(dll_path)
                     self.dll_path = dll_path
                     self.dll_name = dll_name
                     break
@@ -607,7 +635,7 @@ class BstrApi:
                 pass
 
         if self.dll is None:
-            raise RuntimeError("Can not load library {}".format(dll_name))
+            raise RuntimeError('Can not load library {}'.format(dll_name))
         return self.dll
 
 
@@ -646,7 +674,9 @@ if __name__ == '__main__':
         print(a.base64_encode(), Bytes.base64_decode(a.base64_encode()))
         print(a.base64_encode(), Bytes.base64_decode(a.base64_encode().bytes()))
         print(a.base64_encode(), Bytes.base64_decode(a.base64_encode().str()))
-        print(a.base64_encode(), Bytes.base64_decode(
-            c_char_p(a.base64_encode().bytes())))
-        print(a.base64_encode(), Bytes.base64_decode(
-            c_wchar_p(a.base64_encode().str())))
+        print(
+            a.base64_encode(), Bytes.base64_decode(c_char_p(a.base64_encode().bytes()))
+        )
+        print(
+            a.base64_encode(), Bytes.base64_decode(c_wchar_p(a.base64_encode().str()))
+        )
