@@ -189,7 +189,7 @@ class Bytes(ctypes.Structure):
         Returns:
             Void pointer to the byte array data
         """
-        return api.bytes_ptr(pointer(self))
+        return c_void_p(api.bytes_ptr(pointer(self)))
 
     def copy(self) -> 'Bytes':
         """Create a copy of the byte array.
@@ -364,7 +364,7 @@ class Bstr(ctypes.Structure):
         Returns:
             Void pointer to the string data
         """
-        return api.bstr_ptr(pointer(self))
+        return c_void_p(api.bstr_ptr(pointer(self)))
 
     def copy(self) -> 'Bstr':
         """Create a copy of the string.
